@@ -4,8 +4,12 @@
 #include "complex.h"
 
 void read_comp(complex* comp, double real, double imag) {
+    /* print function args */
+    printf("real: %.2f, imag: %.2f\n", real, imag);
+
     comp->real = real;
     comp->imag = imag;
+    print_comp(comp);
 }
 
 void print_comp(complex* comp) {

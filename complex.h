@@ -1,10 +1,21 @@
 #ifndef COMPLEX_H
 #define COMPLEX_H
 
+/* libraries for complex.c */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+
+/* type definition for complex numbers */
+
 typedef struct {
     double real;
     double imag;
 } complex;
+
+/* function prototypes */
 
 void read_comp(complex* comp, double real, double imag);
 void print_comp(complex* comp);
@@ -15,7 +26,5 @@ void mult_comp_img(complex* comp, double imag);
 void mult_comp_comp(complex* comp1, complex* comp2);
 void abs_comp(complex* comp);
 void stop();
-
-#define MAX_COMMAND_LENGTH 100
 
 #endif /* COMPLEX_H */

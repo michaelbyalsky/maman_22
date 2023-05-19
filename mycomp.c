@@ -5,44 +5,99 @@
 #include "complex.h"
 #include <ctype.h>
 
+#define MAX_COMMAND_LENGTH 100
+# define ENTER_KEY 10 /* the ASCII value of the enter key */
+#define MIN_COMMAND_LENGTH 4
 
+char *error_messages[] = {
+        "Undefined complex variable\n", /* "read_comp G, 3.1, 6.5", "read_comp a, 3.6, 5.1", "abs_comp 2.5" */
+        "Undefined command name\n", /* "do_it A, B", "Add_Comp A, C" */
+        "Invalid parameter, not a number\n", /* "read_comp A, 3.5, xyz", "mult_comp_img A, B" */
+        "Missing parameter\n", /* "read_comp A, 3.5", "add_comp B", "abs_comp" */
+        "Extraneous text after end of command\n", /* "read_comp A, 3.5, -3,", "print_comp C, D", "stop A" */
+        "Multiple consecutive commas\n", /* "sub_comp F, , D" */
+        "Missing comma\n", /* "read_comp A 3.5, -3", "print_comp C D" */
+        "Illegal comma\n", /* "read_comp, A, 3.5" */
+};
+
+enum error_messages {
+    UNDEFINED_COMPLEX_VAR,
+    UNDEFINED_COMMAND_NAME,
+    INVALID_PARAMETER_NOT_A_NUMBER,
+    MISSING_PARAMETER,
+    EXTRANEOUS_TEXT,
+    MULTIPLE_CONSECUTIVE_COMMAS,
+    MISSING_COMMA,
+    ILLEGAL_COMMA
+};
+
+enum PARAMETER_TYPE {
+    COMPLEX_VARS, /* for read_comp */
+    COMPLEX_VAR, /* for all function except read_comp, stop */
+    FLOAT, /* for mult_comp_real, mult_comp_img */
+    FLOATS, /* read_comp */
+    NONE /* for stop */
+};
+
+/* function prototypes */
 void print_commands();
+
+void empty_command_string(char *command_string);
+
+int read_command_string(char *command_string);
+
+void clear_command_buffer();
+
+int get_function_index(char *command_name);
+
+int get_complex_var_index(char complex_var);
+
+int check_extraneous_text(char *command_string);
+
+int next_char_is_comma(char *command_string, int start_index);
+
+int check_multiple_consecutive_commas(char *command_string);
+
+/* Mapping between command name, command execution function and command parameters type */
+
+struct {
+    char *function_name;
+
+    void (*function_exe)();
+
+    enum PARAMETER_TYPE param_type;
+} command[] = {
+        {"read_comp",      read_comp,      FLOATS}, /* format read_comp A, 3.5, -3 */
+        {"print_comp",     print_comp,     COMPLEX_VAR}, /* format print_comp A */
+        {"add_comp",       add_comp,       COMPLEX_VARS}, /* format add_comp A, B */
+        {"sub_comp",       sub_comp,       COMPLEX_VARS}, /* format sub_comp A, B */
+        {"mult_comp_real", mult_comp_real, FLOAT}, /* format mult_comp_real A, 3.5 */
+        {"mult_comp_img",  mult_comp_img,  FLOAT}, /* format mult_comp_img A, 3.5 */
+        {"mult_comp_comp", mult_comp_comp, COMPLEX_VARS}, /* format mult_comp_comp A, B */
+        {"abs_comp",       abs_comp,       COMPLEX_VAR}, /* format abs_comp A */
+        {"stop",           stop,           NONE}, /* format stop */
+        {"main_manu",      print_commands, NONE}, /* format main_manu */
+};
+
 
 complex A, B, C, D, E, F;
 
-char *commands[] = {"read_comp", "print_comp", "add_comp", "sub_comp", "mult_comp_real", "mult_comp_img",
-                    "mult_comp_comp", "abs_comp", "stop", "main_manu"};
+/* Mapping between complex name and complex variable */
 
-
-complex *get_complex(char complex_name) {
-    switch (complex_name) {
-        case 'A':
-            return &A;
-        case 'B':
-            return &B;
-        case 'C':
-            return &C;
-        case 'D':
-            return &D;
-        case 'E':
-            return &E;
-        case 'F':
-            return &F;
-        default:
-            return NULL;
-    }
-}
-
-int validate_complex_name(char complex_name) {
-    if (complex_name < 'A' || complex_name > 'F') {
-        return 0;
-    }
-    return 1;
-}
-
+struct {
+    char complex_name;
+    complex *complex_var;
+} complex_vars_map[] = {
+        {'A', &A},
+        {'B', &B},
+        {'C', &C},
+        {'D', &D},
+        {'E', &E},
+        {'F', &F},
+};
 
 void print_commands() {
-    printf("Please apply one of the following operations according to the following syntax:\n");
+    printf("Please apply one of the following operations according to the following syntax:\n\n");
     printf("1. read_comp <complex number>, <real>, <imaginary>\n");
     printf("2. print_comp <complex number>\n");
     printf("3. add_comp <complex number>, <complex number>\n");
@@ -55,228 +110,277 @@ void print_commands() {
     printf("10. main_manu\n\n");
 }
 
-
 int main() {
-    char *token;
-    char *command;
-    int command_index;
-    char complex_name, complex_name2;
-    char real_str, imag_str, num_str;
-    double real, imag, num;
-    int i;
-    char comma, comma2;
-    int continue_flag = 0;
-    size_t command_len;
-    complex *comp, *comp2;
-
+    char command_string[MAX_COMMAND_LENGTH];
+    char command_string_copy[MAX_COMMAND_LENGTH];
+    int function_index, complex_var_index = 0, complex_var2_index = 0;
+    char *function_string, *complex_var_string, *additional_text, *real_string, *img_string;
+    double real_num = 0, img_num = 0;
     print_commands();
+
     while (true) {
-        if (continue_flag == 1) {
-            continue_flag = 0;
-            free(command);
-        }
-        command = malloc(MAX_COMMAND_LENGTH * sizeof(char));
-        printf("Please enter your command:\n");
-        /* scan the full line */
-        fgets(command, 20, stdin);
-        /* remove trailing whitespace */
-        command_len = strlen(command);
-        while (command_len > 0 && isspace(command[command_len-1])) {
-            command_len--;
-        }
-        command[command_len] = '\0'; /* terminate the string */
-        /* remove newline character from command */
-        command[strcspn(command, "\n")] = 0;
-        /* split the command to tokens */
-        token = strtok(command, " ");
-        /* validate the first token is valid command */
-        if (token == NULL) {
-            printf("Invalid command!\n");
-            continue_flag = 1;
-        }
-        /* get the command index and print if not valid */
-        command_index = -1;
-        for (i = 0; i < 10; i++) {
-            if (strcmp(token, commands[i]) == 0) {
-                command_index = i;
-                break;
-            }
-        }
+        /* empty strings */
+        function_string = "";
+        complex_var_string = "";
+        additional_text = "";
+        real_string = "";
+        img_string = "";
 
-        if (command_index == -1) {
-            printf("Invalid command!\n");
-            continue_flag = 1;
+        empty_command_string(command_string);
+        if (read_command_string(command_string) == 0) {
+            continue;
+        };
+
+        /* copy command string */
+        strcpy(command_string_copy, command_string);
+
+
+
+        /* get function name */
+        function_string = strtok(command_string, " ");
+
+        /* get function index */
+        function_index = get_function_index(function_string);
+        if (function_index == -1) {
+            printf("%s", error_messages[UNDEFINED_COMMAND_NAME]);
             continue;
         }
 
-        /* if the command is main menu, print the commands and continue */
-        if (command_index == 9) {
-            print_commands();
-            continue_flag = 1;
+        /* check multiple consecutive commas */
+        if (check_multiple_consecutive_commas(command_string_copy) == 1) {
+            printf("%s", error_messages[MULTIPLE_CONSECUTIVE_COMMAS]);
             continue;
         }
 
-        /* validate stop command in the following format: stop */
-        if (command_index == 8) {
-            /* validate the third token is '\n' or EOF */
-            token = strtok(NULL, " ");
-            if (token != NULL && strcmp(token, "\n") != 0) {
-                printf("Invalid command!\n");
-                continue_flag = 1;
-                continue;
-            }
-            stop();
-        }
+        /* check illegal comma */
 
-        /* validate the command */
-
-        /* validate second token is complex name */
-        token = strtok(NULL, " ");
-        if (token == NULL) {
-            printf("second token should be complex name!\n");
-            continue_flag = 1;
+        if (next_char_is_comma(command_string_copy, strlen(function_string - 1))) {
+            printf("%s", error_messages[ILLEGAL_COMMA]);
             continue;
         }
 
-        complex_name = token[0];
+        /* get extra based on command parameters type */
 
-        /* get the complex number */
-        comp = get_complex(complex_name);
-        if (comp == NULL) {
-            printf("Invalid complex number!\n");
-            continue_flag = 1;
+        if (command[function_index].param_type == COMPLEX_VAR) {
+            complex_var_string = strtok(NULL, " ");
+            if (complex_var_string == NULL) {
+                printf("%s", error_messages[MISSING_PARAMETER]);
+                continue;
+            }
+            complex_var_index = get_complex_var_index(complex_var_string[0]);
+            if (complex_var_index == -1) {
+                printf("%s", error_messages[UNDEFINED_COMPLEX_VAR]);
+                continue;
+            }
+        } else if (command[function_index].param_type == COMPLEX_VARS ||
+                   command[function_index].param_type == FLOATS ||
+                   command[function_index].param_type == FLOAT
+                ) {
+            /* get first complex var */
+            complex_var_string = strtok(NULL, " ");
+            if (complex_var_string == NULL) {
+                printf("%s", error_messages[MISSING_PARAMETER]);
+                continue;
+            }
+            /* validate and remove comma */
+            if (complex_var_string[strlen(complex_var_string) - 1] != ',') {
+                printf("%s", error_messages[MISSING_COMMA]);
+                continue;
+            }
+
+            complex_var_string[strlen(complex_var_string) - 1] = '\0';
+
+            complex_var_index = get_complex_var_index(complex_var_string[0]);
+            if (complex_var_index == -1) {
+                printf("%s", error_messages[UNDEFINED_COMPLEX_VAR]);
+                continue;
+            }
+
+
+            if (command[function_index].param_type == COMPLEX_VARS) {
+                /* get second complex var */
+                complex_var_string = strtok(NULL, " ");
+                if (complex_var_string == NULL) {
+                    printf("%s", error_messages[MISSING_PARAMETER]);
+                    continue;
+                }
+                complex_var2_index = get_complex_var_index(complex_var_string[0]);
+                if (complex_var2_index == -1) {
+                    printf("%s", error_messages[UNDEFINED_COMPLEX_VAR]);
+                    continue;
+                }
+            } else if (command[function_index].param_type == FLOATS) {
+                /* get real number */
+                real_string = strtok(NULL, " ");
+                printf("real_string: %s\n", real_string);
+                if (real_string == NULL) {
+                    printf("%s", error_messages[MISSING_PARAMETER]);
+                    continue;
+                }
+
+                /* validate and remove comma */
+                if (real_string[strlen(real_string) - 1] != ',') {
+                    printf("%s", error_messages[MISSING_COMMA]);
+                    continue;
+                }
+
+                real_string[strlen(real_string) - 1] = '\0';
+
+                real_num = atof(real_string);
+                if (real_num == 0 && real_string[0] != '0' && sizeof real_string != 1) {
+                    printf("%s", error_messages[INVALID_PARAMETER_NOT_A_NUMBER]);
+                    continue;
+                }
+
+                /* get imaginary number */
+                img_string = strtok(NULL, " ");
+                if (img_string == NULL) {
+                    printf("%s", error_messages[MISSING_PARAMETER]);
+                    continue;
+                }
+
+                img_num = atof(img_string);
+                if (img_num == 0 && img_string[0] != '0' && sizeof img_string != 1) {
+                    printf("%s", error_messages[INVALID_PARAMETER_NOT_A_NUMBER]);
+                    continue;
+                }
+            } else if (command[function_index].param_type == FLOAT) {
+                /* get real number */
+                real_string = strtok(NULL, " ");
+                if (real_string == NULL) {
+                    printf("%s", error_messages[MISSING_PARAMETER]);
+                    continue;
+                }
+
+                real_num = atof(real_string);
+                if (real_num == 0 && real_string[0] != '0' && sizeof real_string != 1) {
+                    printf("%s", error_messages[INVALID_PARAMETER_NOT_A_NUMBER]);
+                    continue;
+                }
+            }
+        }
+
+        /* check if there is extra text (not including spaces) after command */
+        additional_text = strtok(NULL, " ");
+        if (check_extraneous_text(additional_text) == 1) {
+            printf("%s", error_messages[EXTRANEOUS_TEXT]);
             continue;
         }
 
-        /* validate read_comp: rest of the command should be: ", <real>, <imaginary>" */
-        if (command_index == 0) {
-            /* validate the third token is ',' */
-            comma = token[1];
-
-            if (comma != ',') {
-                printf("Invalid command!\n");
-                continue_flag = 1;
-                continue;
-            }
-
-            /* get next char */
-            token = strtok(NULL, " ");
-
-            /* the char can be 1.2323123 or 1 for example, so we nead to assume it is real number */
-            printf("token: %s\n", token);
-            real = atof(&real_str);
-
-            printf("real: %c\n", real);
-
+        /* execute command according to parameters type */
+        if (command[function_index].param_type == COMPLEX_VAR) {
+            command[function_index].function_exe(complex_vars_map[complex_var_index].complex_var);
+        } else if (command[function_index].param_type == COMPLEX_VARS) {
+            command[function_index].function_exe(complex_vars_map[complex_var_index].complex_var,
+                                                 complex_vars_map[complex_var2_index].complex_var);
+        } else if (command[function_index].param_type == FLOATS) {
+            printf("floats\n");
+            command[function_index].function_exe(complex_vars_map[complex_var_index].complex_var, real_num, img_num);
+        } else if (command[function_index].param_type == FLOAT) {
+            command[function_index].function_exe(complex_vars_map[complex_var_index].complex_var, real_num);
+        } else if (command[function_index].param_type == NONE) {
+            command[function_index].function_exe();
+        } else {
+            printf("%s", error_messages[UNDEFINED_COMMAND_NAME]);
         }
 
-        /* validate print_comp command in the following format: print_comp <complex number> */
-        if (command_index == 1) {
-            /* validate the third token is '\n' or EOF */
-            token = strtok(NULL, " ");
-            if (token != NULL && strcmp(token, "\n") != 0) {
-                printf("Invalid command!\n");
-                continue_flag = 1;
-                continue;
-            }
-            /* print the complex number */
-            print_comp(comp);
-            continue_flag = 1;
-            continue;
-        }
+        continue;
+    }
 
-        /* validate add_comp, sub_comp, mult_comp_comp commands in the following format: <command> <complex number>, <complex number> */
-        if (command_index == 2 || command_index == 3 || command_index == 6) {
-            /* validate the third token is ',' */
-            token = strtok(NULL, " ");
-            if (token == NULL || strcmp(token, ",") != 0) {
-                printf("Invalid command!\n");
-                continue_flag = 1;
-                continue;
-            }
-            /* validate the fourth token is complex number */
-            token = strtok(NULL, " ");
-            if (token == NULL) {
-                printf("Invalid command!\n");
-                continue_flag = 1;
-                continue;
-            }
-            complex_name2 = token[0];
 
-            /* get the second complex number */
-            comp2 = get_complex(complex_name2);
-            if (comp2 == NULL) {
-                printf("Invalid complex number!\n");
-                continue_flag = 1;
-                continue;
-            }
-            /* validate the fifth token is '\n' or EOF */
-            token = strtok(NULL, " ");
-            if (token != NULL && strcmp(token, "\n") != 0) {
-                printf("Invalid command!\n");
-                continue_flag = 1;
-                continue;
-            }
-            /* perform the command */
-            if (command_index == 2) {
-                add_comp(comp, comp2);
-            } else if (command_index == 3) {
-                sub_comp(comp, comp2);
-            } else {
-                mult_comp_comp(comp, comp2);
-            }
-            continue_flag = 1;
-            continue;
-        }
+    return 0;
+}
 
-        /* validate mult_comp_real, mult_comp_img commands in the following format: <command> <complex number>, <number> */
-        if (command_index == 4 || command_index == 5) {
-            /* validate the third token is ',' */
-            token = strtok(NULL, " ");
-            if (token == NULL || strcmp(token, ",") != 0) {
-                printf("Invalid command!\n");
-                continue_flag = 1;
-                continue;
-            }
-            /* validate the fourth token is number */
-            token = strtok(NULL, " ");
-            if (token == NULL) {
-                printf("Invalid command!\n");
-                continue_flag = 1;
-                continue;
-            }
-            num = atof(token);
-            /* validate the fifth token is '\n' or EOF */
-            token = strtok(NULL, " ");
-            if (token != NULL && strcmp(token, "\n") != 0) {
-                printf("Invalid command!\n");
-                continue_flag = 1;
-                continue;
-            }
-            /* perform the command */
-            if (command_index == 4) {
-                mult_comp_real(comp, num);
-            } else {
-                mult_comp_img(comp, num);
-            }
-            continue_flag = 1;
-            continue;
-        }
-
-        /* validate abs_comp command in the following format: abs_comp <complex number> */
-        if (command_index == 7) {
-            /* validate the third token is '\n' or EOF */
-            token = strtok(NULL, " ");
-            if (token != NULL && strcmp(token, "\n") != 0) {
-                printf("Invalid command!\n");
-                continue_flag = 1;
-                continue;
-            }
-            /* perform the command */
-            abs_comp(comp);
-            continue_flag = 1;
-            continue;
-        }
+void empty_command_string(char *command_string) {
+    int i = 0;
+    while (command_string[i] != '\0') {
+        command_string[i] = '\0';
+        i++;
     }
 }
 
+int read_command_string(char *command_string) {
+    int i, input_char = 0;
+    for (i = 0; input_char != ENTER_KEY; i++) {
+        input_char = getchar();
+        if (input_char != ENTER_KEY) {
+            command_string[i] = input_char;
+        } else if (i > MAX_COMMAND_LENGTH) {
+            printf("Command is too long. Please try again.\n");
+            clear_command_buffer();
+            return 0;
+        } else {
+            command_string[i] = input_char;
+        }
+    }
+
+    if (i < MIN_COMMAND_LENGTH) {
+        printf("Command is too short. Please try again.\n");
+        clear_command_buffer();
+        return 0;
+    }
+
+    return 1;
+}
+
+void clear_command_buffer() {
+    while (getchar() != ENTER_KEY);
+    return;
+}
+
+int get_function_index(char *command_name) {
+    int i;
+    for (i = 0; i < sizeof(command) / sizeof(command[0]); i++) {
+        if (strncmp(command_name, command[i].function_name, strlen(command[i].function_name)) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int get_complex_var_index(char complex_var) {
+    int i;
+    for (i = 0; i < sizeof(complex_vars_map) / sizeof(complex_vars_map[0]); i++) {
+        if (complex_var == complex_vars_map[i].complex_name) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* check if there is extra text (not including spaces) after command */
+int check_extraneous_text(char *command_string) {
+    int i;
+    for (i = 0; i < strlen(command_string); i++) {
+        if (!isspace(command_string[i])) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int next_char_is_comma(char *command_string, int start_index) {
+    int index = start_index;
+
+    for (; index < strlen(command_string); index++) {
+        if (isspace(command_string[index])) {
+            continue;
+        } else if (command_string[index] == ',') {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+
+    return 0;
+}
+
+int check_multiple_consecutive_commas(char *command_string) {
+    int i;
+    for (i = 0; i < strlen(command_string); i++) {
+        if (command_string[i] == ',' && next_char_is_comma(command_string, i + 1) == 1) {
+            return 1;
+        }
+    }
+    return 0;
+}
