@@ -58,6 +58,10 @@ int next_char_is_comma(char *command_string, int start_index);
 
 int check_multiple_consecutive_commas(char *command_string);
 
+int check_last_string_char_is_not_letter_or_digit(char *command_string);
+
+int check_null_or_empty_string(char *command_string);
+
 /* Mapping between command name, command execution function and command parameters type */
 
 struct {
@@ -114,7 +118,7 @@ int main() {
     char command_string[MAX_COMMAND_LENGTH];
     char command_string_copy[MAX_COMMAND_LENGTH];
     int function_index, complex_var_index = 0, complex_var2_index = 0;
-    char *function_string, *complex_var_string, *additional_text, *real_string, *img_string;
+    char *function_string, *complex_var_string, *additional_text, *real_string, *img_string, *complex_var2_string;
     double real_num = 0, img_num = 0;
     print_commands();
 
@@ -122,6 +126,7 @@ int main() {
         /* empty strings */
         function_string = "";
         complex_var_string = "";
+        complex_var2_string = "";
         additional_text = "";
         real_string = "";
         img_string = "";
@@ -154,7 +159,7 @@ int main() {
 
         /* check illegal comma */
 
-        if (next_char_is_comma(command_string_copy, strlen(function_string - 1))) {
+        if (next_char_is_comma(command_string_copy, strlen(function_string) - 1)) {
             printf("%s", error_messages[ILLEGAL_COMMA]);
             continue;
         }
@@ -184,6 +189,11 @@ int main() {
             }
             /* validate and remove comma */
             if (complex_var_string[strlen(complex_var_string) - 1] != ',') {
+
+                if (check_null_or_empty_string(strtok(NULL, " "))) {
+                    printf("%s", error_messages[MISSING_PARAMETER]);
+                    continue;
+                }
                 printf("%s", error_messages[MISSING_COMMA]);
                 continue;
             }
@@ -198,9 +208,10 @@ int main() {
 
 
             if (command[function_index].param_type == COMPLEX_VARS) {
+                printf("complex_var_string: %s\n", complex_var_string);
                 /* get second complex var */
-                complex_var_string = strtok(NULL, " ");
-                if (complex_var_string == NULL) {
+                complex_var2_string = strtok(NULL, " ");
+                if (complex_var2_string == NULL) {
                     printf("%s", error_messages[MISSING_PARAMETER]);
                     continue;
                 }
@@ -212,16 +223,22 @@ int main() {
             } else if (command[function_index].param_type == FLOATS) {
                 /* get real number */
                 real_string = strtok(NULL, " ");
-                printf("real_string: %s\n", real_string);
                 if (real_string == NULL) {
                     printf("%s", error_messages[MISSING_PARAMETER]);
                     continue;
                 }
 
+
                 /* validate and remove comma */
                 if (real_string[strlen(real_string) - 1] != ',') {
-                    printf("%s", error_messages[MISSING_COMMA]);
-                    continue;
+                    /* check if there is a missing parameter */
+                    if (check_null_or_empty_string(strtok(NULL, " "))) {
+                        printf("%s", error_messages[MISSING_PARAMETER]);
+                        continue;
+                    } else {
+                        printf("%s", error_messages[MISSING_COMMA]);
+                        continue;
+                    }
                 }
 
                 real_string[strlen(real_string) - 1] = '\0';
@@ -257,6 +274,12 @@ int main() {
                     printf("%s", error_messages[INVALID_PARAMETER_NOT_A_NUMBER]);
                     continue;
                 }
+            }
+
+            /* check last command char is ok */
+            if (check_last_string_char_is_not_letter_or_digit(command_string_copy) == 1) {
+                printf("%s", error_messages[EXTRANEOUS_TEXT]);
+                continue;
             }
         }
 
@@ -351,8 +374,14 @@ int get_complex_var_index(char complex_var) {
 /* check if there is extra text (not including spaces) after command */
 int check_extraneous_text(char *command_string) {
     int i;
+    if (command_string == NULL) {
+        return 0;
+    }
+    /* check if extra test exists (ignore spaces, new lines and tabs) */
     for (i = 0; i < strlen(command_string); i++) {
-        if (!isspace(command_string[i])) {
+        if (isspace(command_string[i]) || command_string[i] == '\n' || command_string[i] == '\t') {
+            continue;
+        } else {
             return 1;
         }
     }
@@ -381,6 +410,27 @@ int check_multiple_consecutive_commas(char *command_string) {
         if (command_string[i] == ',' && next_char_is_comma(command_string, i + 1) == 1) {
             return 1;
         }
+    }
+    return 0;
+}
+
+int check_last_string_char_is_not_letter_or_digit(char *command_string) {
+    /* remove spaces from end of string */
+    int i = strlen(command_string) - 1;
+    while (isspace(command_string[i]) || command_string[i] == '\n' || command_string[i] == '\t') {
+        i--;
+    }
+
+    if (isalpha(command_string[i]) || isdigit(command_string[i])) {
+        return 0;
+    }
+
+    return 1;
+}
+
+int check_null_or_empty_string(char *command_string) {
+    if (command_string == NULL || strlen(command_string) == 0 || isspace(command_string[0])) {
+        return 1;
     }
     return 0;
 }
