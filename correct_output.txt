@@ -1,0 +1,46 @@
+Please apply one of the following operations according to the following syntax:
+
+1. read_comp <complex number>, <real>, <imaginary>
+2. print_comp <complex number>
+3. add_comp <complex number>, <complex number>
+4. sub_comp <complex number>, <complex number>
+5. mult_comp_real <complex number>, <real number>
+6. mult_comp_img <complex number>, <imaginary number>
+7. mult_comp_comp <complex number>, <complex number>
+8. abs_comp <complex number>
+9. stop
+10. main_manu
+
+print_comp: 0.00 + (0.00)i
+print_comp: 0.00 + (0.00)i
+print_comp: 0.00 + (0.00)i
+read_comp: print_comp: 45.10 + (-23.75)i
+print_comp: 45.10 + (-23.75)i
+read_comp: print_comp: 54.20 + (3.56)i
+print_comp: 54.20 + (3.56)i
+read_comp: print_comp: 0.00 + (-1.00)i
+print_comp: 0.00 + (-1.00)i
+add_comp: (45.10 + (-23.75)i) + (45.10 + (-23.75)i)
+print_comp: 90.20 + (-47.50)i
+sub_comp: (0.00 + (-1.00)i) - (0.00 + (-1.00)i)
+print_comp: 0.00 + (0.00)i
+sub_comp: (54.20 + (3.56)i) - (54.20 + (3.56)i)
+print_comp: 0.00 + (0.00)i
+sub_comp: (0.00 + (0.00)i) - (0.00 + (0.00)i)
+print_comp: 0.00 + (0.00)i
+mult_comp_real: (90.20 + (-47.50)i) * 2.51
+print_comp: 226.40 + (-119.22)i
+mult_comp_img: (-580.49 + (305.69)i) * -2.56
+print_comp: -580.49 + (305.69)i
+mult_comp_comp: (-580.49 + (305.69)i) * (-580.49 + (305.69)i)
+243525.98 + (-354906.23)i
+Missing parameter
+abs_comp: -580.49 + (305.69)i
+The absolute value of -580.49 + (305.69)i is 656.07
+abs_comp: 0.00 + (0.00)i
+The absolute value of 0.00 + (0.00)i is 0.00
+abs_comp: 0.00 + (0.00)i
+The absolute value of 0.00 + (0.00)i is 0.00
+abs_comp: 0.00 + (0.00)i
+The absolute value of 0.00 + (0.00)i is 0.00
+Goodbye!

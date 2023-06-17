@@ -208,7 +208,6 @@ int main() {
 
 
             if (command[function_index].param_type == COMPLEX_VARS) {
-                printf("complex_var_string: %s\n", complex_var_string);
                 /* get second complex var */
                 complex_var2_string = strtok(NULL, " ");
                 if (complex_var2_string == NULL) {
@@ -297,7 +296,6 @@ int main() {
             command[function_index].function_exe(complex_vars_map[complex_var_index].complex_var,
                                                  complex_vars_map[complex_var2_index].complex_var);
         } else if (command[function_index].param_type == FLOATS) {
-            printf("floats\n");
             command[function_index].function_exe(complex_vars_map[complex_var_index].complex_var, real_num, img_num);
         } else if (command[function_index].param_type == FLOAT) {
             command[function_index].function_exe(complex_vars_map[complex_var_index].complex_var, real_num);
@@ -332,8 +330,6 @@ int read_command_string(char *command_string) {
             printf("Command is too long. Please try again.\n");
             clear_command_buffer();
             return 0;
-        } else {
-            command_string[i] = input_char;
         }
     }
 

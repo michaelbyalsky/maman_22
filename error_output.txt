@@ -1,0 +1,47 @@
+Please apply one of the following operations according to the following syntax:
+
+1. read_comp <complex number>, <real>, <imaginary>
+2. print_comp <complex number>
+3. add_comp <complex number>, <complex number>
+4. sub_comp <complex number>, <complex number>
+5. mult_comp_real <complex number>, <real number>
+6. mult_comp_img <complex number>, <imaginary number>
+7. mult_comp_comp <complex number>, <complex number>
+8. abs_comp <complex number>
+9. stop
+10. main_manu
+
+command_string: read_comp G, 3.1, 6.5
+Undefined complex variable
+command_string: read_comp a, 3.6, 5.1
+Undefined complex variable
+command_string: do_it A, B
+Undefined command name
+command_string: stop A, B
+Extraneous text after end of command
+command_string: Add_Comp A, C.6, 5.1
+Undefined command name
+command_string: read_comp A, 3.5, xyz
+Invalid parameter, not a number
+command_string: read_comp A, 3.5
+Missing parameter
+command_string: read_comp A, 3.5, -3,
+Extraneous text after end of command
+command_string: add_comp B
+Missing parameter
+command_string: print_comp C, D
+Extraneous text after end of command
+command_string: sub_comp F, , D
+Multiple consecutive commas
+command_string: mult_comp_comp F D3,
+Missing comma
+command_string: mult_comp_real, A, 2.5
+Illegal comma
+command_string: mult_comp_img A, B2.5
+Invalid parameter, not a number
+command_string: abs_comp
+Missing parameter
+command_string: abs_comp 2.5
+Undefined complex variable
+command_string: stop
+Goodbye!
